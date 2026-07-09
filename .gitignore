@@ -1,0 +1,32 @@
+# Python environments
+.venv/
+env/
+venv/
+
+# Python cache/test cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Results and checkpoints
+checkpoints/*
+!checkpoints/.gitkeep
+
+results/*
+!results/.gitkeep
+
+# Model/checkpoint artifacts anywhere
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Experiment logs
+wandb/
+
+# OS/editor files
+.DS_Store
+.vscode/
