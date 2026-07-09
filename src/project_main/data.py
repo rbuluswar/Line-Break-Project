@@ -49,7 +49,6 @@ def insert_newlines(token_ids: list[int], vocab: Vocab, line_size: int) -> list[
 
 
 def generate_sequence(
-    seq_len: int,
     vocab: Vocab,
     task_cfg: dict,
     generator: torch.Generator | None = None,
@@ -61,7 +60,8 @@ def generate_sequence(
         content_tokens:
             A list of length seq_len.
     """
-    
+    seq_len = task_cfg["seq_len"]
+
     # Non-special token IDs are the integers from 2 to vocab.size-1
     sampled_indices = torch.randint(
         low=2,
@@ -90,7 +90,6 @@ def generate_sequence(
 
 def make_batch(
     batch_size: int,
-    seq_len: int,
     vocab: Vocab,
     task_cfg: dict,
     device: str,
@@ -109,7 +108,6 @@ def make_batch(
 
     for example_idx in range(batch_size):
         tokens, targets = generate_sequence(
-            seq_len=seq_len,
             vocab=vocab,
             task_cfg=task_cfg,
             generator=generator,
@@ -142,7 +140,6 @@ def make_eval_batch(
 
     return make_batch(
         batch_size=batch_size,
-        seq_len=seq_len,
         vocab=vocab,
         task_cfg = task_cfg,
         device=device,
