@@ -76,3 +76,4 @@ def build_vocab(task_cfg: dict) -> Vocab:
         token_to_id=token_to_id,
         id_to_token=id_to_token,
     )
+

@@ -5,9 +5,9 @@ experiment:
 
 task:
   name: line_break_prediction
-  seq_len: 50
+  seq_len: 60
   vocab_size: 130
-  line_size: 100
+  line_size: 60
 
 data:
   batch_size: 512
