@@ -1,59 +1,49 @@
-seed: 1337
-run_name: two_layer_transformer_debug
-output_dir: checkpoints/debug
+experiment:
+  name: debug
+  seed: 1729
+  device: cpu
 
-model:
-  architecture: decoder_only_transformer
-  n_layers: 2
-  n_heads: 2
-  d_model: 128
-  d_head: 64
-  d_mlp: 512
-  context_length: 64
-  vocab_size: 256
-  activation: gelu
-  normalization: layer_norm
-  dropout: 0.0
-  attention_dropout: 0.0
-  residual_dropout: 0.0
-  tie_embeddings: true
-  use_bias: true
+task:
+  name: line_break_prediction
+  seq_len: 20
+  vocab_size: 50
+  line_size: 20
 
 data:
-  dataset_name: line_breaks_debug
-  train_path: data/debug_train.txt
-  val_path: data/debug_val.txt
-  tokenizer: byte
-  batch_size: 8
-  eval_batch_size: 16
-  num_workers: 0
-  pin_memory: false
+  batch_size: 32
+  eval_batch_size: 64
+  fixed_eval_seed: 419
+  generate_on_the_fly: true
 
-training:
-  device: auto
-  dtype: float32
-  max_steps: 200
-  grad_accum_steps: 1
-  max_grad_norm: 1.0
-  eval_interval: 25
-  eval_steps: 10
-  log_interval: 5
-  checkpoint_interval: 100
-  keep_last_checkpoints: 2
+model:
+  n_layers: 2
+  n_heads: 2
+  d_model: 64
+  d_head: 32
+  d_mlp: 128
+  act_fn: gelu
+  normalization_type: LN
+  positional_embedding_type: standard
 
 optimizer:
   name: adamw
   lr: 0.001
+  weight_decay: 0.0
   betas: [0.9, 0.95]
   eps: 0.00000001
-  weight_decay: 0.01
+
+training:
+  num_steps: 100
+  grad_clip_norm: 1.0
 
 scheduler:
-  name: cosine
-  warmup_steps: 20
-  min_lr: 0.0001
+  name: constant
+  warmup_steps: 0
 
-metrics:
-  primary: val_loss
-  track_accuracy: true
-  track_perplexity: true
+logging:
+  log_every: 10
+  eval_every: 50
+  save_every: 100
+
+paths:
+  output_dir: results/debug
