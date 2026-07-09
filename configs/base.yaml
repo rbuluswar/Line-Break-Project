@@ -1,0 +1,59 @@
+seed: 1337
+run_name: two_layer_transformer
+output_dir: checkpoints/two_layer_transformer
+
+model:
+  architecture: decoder_only_transformer
+  n_layers: 2
+  n_heads: 4
+  d_model: 256
+  d_head: 64
+  d_mlp: 1024
+  context_length: 128
+  vocab_size: 256
+  activation: gelu
+  normalization: layer_norm
+  dropout: 0.1
+  attention_dropout: 0.1
+  residual_dropout: 0.1
+  tie_embeddings: true
+  use_bias: true
+
+data:
+  dataset_name: line_breaks
+  train_path: data/train.txt
+  val_path: data/val.txt
+  tokenizer: byte
+  batch_size: 64
+  eval_batch_size: 128
+  num_workers: 2
+  pin_memory: true
+
+training:
+  device: auto
+  dtype: float32
+  max_steps: 20000
+  grad_accum_steps: 1
+  max_grad_norm: 1.0
+  eval_interval: 500
+  eval_steps: 100
+  log_interval: 50
+  checkpoint_interval: 1000
+  keep_last_checkpoints: 5
+
+optimizer:
+  name: adamw
+  lr: 0.0003
+  betas: [0.9, 0.95]
+  eps: 0.00000001
+  weight_decay: 0.1
+
+scheduler:
+  name: cosine
+  warmup_steps: 1000
+  min_lr: 0.00003
+
+metrics:
+  primary: val_loss
+  track_accuracy: true
+  track_perplexity: true
