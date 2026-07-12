@@ -3,7 +3,7 @@ from typing import Any
 import torch
 
 from project_main.data import make_eval_batch
-from project_main.metrics import loss_fn, accuracy
+from project_main.metrics import loss_fn, accuracy, special_token_metrics
 
 
 @torch.no_grad()
@@ -30,6 +30,15 @@ def evaluate_model(
         "eval_loss": loss_fn(logits, batch.targets).item(),
         "eval_accuracy": accuracy(logits, batch.targets),
     }
+
+    newline_metrics = special_token_metrics(
+    logits=logits,
+    targets=batch.targets,
+    token_id=1,
+    token_name="newline",
+)
+
+    metrics.update({f"eval_{k}": v for k, v in newline_metrics.items()})
 
     model.train()
 
