@@ -80,6 +80,24 @@ def logit_at_token(
     return position_logits.gather(dim=-1, index=token_ids[:, None]).squeeze(-1)
 
 
+@torch.no_grad()
+def logit_diff(
+    logits: torch.Tensor,
+    correct_tokens: torch.Tensor,
+    incorrect_tokens: torch.Tensor,
+    position: int = -1,
+) -> torch.Tensor:
+    """
+    Compute logit(correct) - logit(incorrect) at a given position.
+
+    Useful for clean/corrupted activation patching.
+    """
+
+    correct_logits = logit_at_token(logits, correct_tokens, position=position)
+    incorrect_logits = logit_at_token(logits, incorrect_tokens, position=position)
+
+    return correct_logits - incorrect_logits
+
 
 @torch.no_grad()
 def masked_accuracy(
