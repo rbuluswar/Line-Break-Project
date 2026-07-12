@@ -1,5 +1,3 @@
-# src/project_main/tokens.py
-
 from dataclasses import dataclass
 
 

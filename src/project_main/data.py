@@ -1,5 +1,3 @@
-# src/my_project/data.py
-
 from dataclasses import dataclass
 from typing import Any
 

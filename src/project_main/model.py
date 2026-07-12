@@ -1,5 +1,3 @@
-# src/my_project/model.py
-
 from typing import Any
 
 import torch
