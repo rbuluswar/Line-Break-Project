@@ -37,6 +37,7 @@ class Vocab:
 
 def build_vocab(task_cfg: dict) -> Vocab:
     vocab_size = task_cfg["vocab_size"]
+    num_token_lengths = task_cfg["num_token_lengths"]
 
     num_special = len(SPECIAL_TOKENS)
     num_regular = vocab_size - num_special
@@ -47,18 +48,18 @@ def build_vocab(task_cfg: dict) -> Vocab:
             f"It must be greater than {num_special}."
         )
     
-    if num_regular % 4 != 0:
+    if num_regular % num_token_lengths != 0:
         raise ValueError(
-            f"num_regular={num_regular} is not divisible by 4. "
-            f"It must be divisible by 4."
+            f"num_regular={num_regular} is not divisible by {num_token_lengths}. "
+            f"It must be divisible by {num_token_lengths}."
         )
 
     tokens: list[str] = []
     tokens += SPECIAL_TOKENS
 
-    #Create Tokens of Length 1 to 4
-    for j in range(4):
-        tokens += [f"TOKEN_{i}_{j+1}" for i in range(num_regular//4)]
+    #Create Tokens of Length 1 to num_token_lengths
+    for j in range(num_token_lengths):
+        tokens += [f"TOKEN_{i}_{j+1}" for i in range(num_regular//num_token_lengths)]
 
 
     if len(tokens) != vocab_size:

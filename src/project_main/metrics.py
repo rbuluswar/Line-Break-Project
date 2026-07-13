@@ -43,9 +43,6 @@ def accuracy(
             Tensor of shape [batch, seq_len, vocab_size].
         targets:
             Tensor of shape [batch, seq_len].
-        pad_id:
-            Optional token ID to ignore in accuracy.
-
     Returns:
         Accuracy as a Python float.
     """
@@ -183,6 +180,18 @@ def target_token_fraction(
     return (token_mask & valid_mask).float().sum().item() / valid_mask.float().sum().item()
 
 
+@torch.no_grad()
+def target_token_prediction_frequency(
+    logits: torch.Tensor,
+    token_id: int,
+) -> float:
+    """
+    Fraction of predictions equal to token_id.
+    """
+    preds = logits.argmax(dim=-1)
+    return (preds == token_id).float().mean().item()
+
+
 
 @torch.no_grad()
 def special_token_metrics(
@@ -208,6 +217,10 @@ def special_token_metrics(
         ),
         f"target_fraction_{token_name}": target_token_fraction(
             targets=targets,
+            token_id=token_id,
+        ),
+        f"target_prediction_frequency_{token_name}": target_token_prediction_frequency(
+            logits=logits,
             token_id=token_id,
         ),
     }
