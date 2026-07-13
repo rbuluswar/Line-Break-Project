@@ -34,7 +34,7 @@ def evaluate_model(
     newline_metrics = special_token_metrics(
     logits=logits,
     targets=batch.targets,
-    token_id=1,
+    token_id=vocab.newline_id,
     token_name="newline",
 )
 

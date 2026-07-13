@@ -126,7 +126,6 @@ def make_batch(
 
 def make_eval_batch(
     batch_size: int,
-    seq_len: int,
     vocab: Vocab,
     task_cfg: dict,
     device: str,
