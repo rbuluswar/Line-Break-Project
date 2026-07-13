@@ -13,8 +13,6 @@ def count_parameters(model: HookedTransformer) -> int:
 
 def validate_model_config(
     cfg: dict[str, Any],
-    vocab_size: int,
-    seq_len: int,
 ) -> None:
     """
     Validate model-related config values.
@@ -23,6 +21,8 @@ def validate_model_config(
     """
 
     model_cfg = cfg["model"]
+    seq_len = cfg["task"]["seq_len"]
+    vocab_size = cfg["task"]["vocab_size"]    
 
     required_keys = [
         "n_layers",

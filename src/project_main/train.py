@@ -22,7 +22,7 @@ from project_main.metrics import (
     accuracy,
     special_token_metrics,
 )
-from project_main.model import build_model, count_parameters
+from project_main.model import build_model, count_parameters, validate_model_config
 from project_main.tokens import build_vocab
 
 
@@ -152,8 +152,10 @@ def train(cfg: dict[str, Any]) -> None:
     output_dir = Path(cfg["paths"]["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
     save_config(cfg, output_dir)
+    validate_model_config(cfg)
 
     vocab = build_vocab(cfg["task"])
+
 
     model = build_model(
         cfg=cfg,
