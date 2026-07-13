@@ -99,6 +99,7 @@ def build_model(
         act_fn=model_cfg.get("act_fn", "gelu"),
         normalization_type=model_cfg.get("normalization_type", "LN"),
         device=device,
+        positional_embedding_type=model_cfg.get("positional_embedding_type", "standard"),
     )
 
     model = HookedTransformer(tl_cfg)
