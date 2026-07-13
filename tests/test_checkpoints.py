@@ -9,7 +9,7 @@ def test_save_and_load_checkpoint(tmp_path):
     cfg = {
         "task": {
             "seq_len": 8,
-            "vocab_size": 32,
+            "vocab_size": 30,
         },
         "model": {
             "n_layers": 2,

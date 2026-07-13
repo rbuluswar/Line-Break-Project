@@ -6,7 +6,7 @@ from project_main.data import insert_newlines
 
 
 def test_batch_shapes():
-    cfg = {"vocab_size": 32, "seq_len": 8, "line_size": 10}
+    cfg = {"vocab_size": 30, "seq_len": 8, "line_size": 10}
     vocab = build_vocab(cfg)
 
     batch = make_batch(
@@ -23,7 +23,7 @@ def test_batch_shapes():
 
 
 def test_targets_are_shifted_inputs():
-    cfg = {"vocab_size": 32, "seq_len": 8, "line_size": 10}
+    cfg = {"vocab_size": 30, "seq_len": 8, "line_size": 10}
     vocab = build_vocab(cfg)
 
     batch = make_batch(
@@ -38,7 +38,7 @@ def test_targets_are_shifted_inputs():
 
 
 def test_eval_batch_is_repeatable():
-    cfg = {"vocab_size": 32, "seq_len": 8, "line_size": 10}
+    cfg = {"vocab_size": 30, "seq_len": 8, "line_size": 10}
     vocab = build_vocab(cfg)
 
     batch1 = make_eval_batch(
@@ -62,7 +62,7 @@ def test_eval_batch_is_repeatable():
 
 
 def test_training_batches_change_without_seed():
-    cfg = {"vocab_size": 32, "seq_len": 8, "line_size": 10}
+    cfg = {"vocab_size": 30, "seq_len": 8, "line_size": 10}
     vocab = build_vocab(cfg)
 
     batch1 = make_batch(

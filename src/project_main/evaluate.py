@@ -17,7 +17,6 @@ def evaluate_model(
 
     batch = make_eval_batch(
         batch_size=cfg["data"]["eval_batch_size"],
-        seq_len=cfg["task"]["seq_len"],
         vocab=vocab,
         task_cfg=cfg["task"],
         device=device,

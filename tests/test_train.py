@@ -11,7 +11,7 @@ def test_train_smoke(tmp_path):
         "task": {
             "name": "test_task",
             "seq_len": 8,
-            "vocab_size": 32,
+            "vocab_size": 30,
             "line_size": 10,
         },
         "data": {
