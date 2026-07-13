@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python -m my_project.train \
+python -m project_main.train \
   --config configs/base.yaml
 
   
