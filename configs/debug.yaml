@@ -6,9 +6,10 @@ experiment:
 task:
   name: line_break_prediction
   seq_len: 20
-  num_token_lengths: 4
-  vocab_size: 82
-  line_size: 20
+  num_token_lengths: 8
+  vocab_size: 122
+  line_size: 30
+  loss_type: "standard" #OR newline_binary
 
 data:
   batch_size: 32
@@ -17,7 +18,7 @@ data:
   generate_on_the_fly: true
 
 model:
-  n_layers: 2
+  n_layers: 3
   n_heads: 2
   d_model: 64
   d_head: 32
@@ -34,7 +35,7 @@ optimizer:
   eps: 0.00000001
 
 training:
-  num_steps: 100
+  num_steps: 10_000
   grad_clip_norm: 1.0
 
 scheduler:
@@ -42,9 +43,9 @@ scheduler:
   warmup_steps: 0
 
 logging:
-  log_every: 10
-  eval_every: 50
-  save_every: 100
+  log_every: 100
+  eval_every: 500
+  save_every: 10000
 
 paths:
   output_dir: results/debug

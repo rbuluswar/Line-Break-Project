@@ -5,19 +5,20 @@ experiment:
 
 task:
   name: line_break_prediction
-  seq_len: 60
-  num_token_lengths: 4
-  vocab_size: 130
-  line_size: 60
+  seq_len: 20
+  num_token_lengths: 8
+  vocab_size: 18
+  line_size: 30
+  loss_type: "standard" # OR newline_binary
 
 data:
-  batch_size: 512
+  batch_size: 256
   eval_batch_size: 1024
   generate_on_the_fly: true
   fixed_eval_seed: 419
 
 model:
-  n_layers: 2
+  n_layers: 3
   n_heads: 4
   d_model: 128
   d_head: 32

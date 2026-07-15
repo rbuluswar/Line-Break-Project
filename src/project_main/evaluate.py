@@ -12,6 +12,7 @@ def evaluate_model(
     vocab,
     cfg: dict[str, Any],
     device: str,
+    in_training: bool = True
 ) -> dict[str, float]:
     model.eval()
 
@@ -39,6 +40,7 @@ def evaluate_model(
 
     metrics.update({f"eval_{k}": v for k, v in newline_metrics.items()})
 
-    model.train()
+    if in_training:
+        model.train()
 
     return metrics

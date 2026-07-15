@@ -44,6 +44,11 @@ def resolve_device(cfg: dict[str, Any]) -> str:
         raise RuntimeError(
             "Config requested device='cuda', but torch.cuda.is_available() is False."
         )
+    
+    if requested_device == "mps" and not torch.backends.mps.is_available():
+        raise RuntimeError(
+            "Config requested device='mps', but torch.backends.mps.is_available() is False."
+        )
 
     return requested_device
 
