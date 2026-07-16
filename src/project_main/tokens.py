@@ -36,6 +36,9 @@ class Vocab:
 
 
 def build_vocab(task_cfg: dict) -> Vocab:
+    print("Building vocab...")
+    print(SPECIAL_TOKENS)
+
     vocab_size = task_cfg["vocab_size"]
     num_token_lengths = task_cfg["num_token_lengths"]
 

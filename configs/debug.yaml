@@ -7,13 +7,13 @@ task:
   name: line_break_prediction
   seq_len: 20
   num_token_lengths: 8
-  vocab_size: 122
+  vocab_size: 84
   line_size: 30
   loss_type: "standard" #OR newline_binary
 
 data:
   batch_size: 32
-  eval_batch_size: 64
+  eval_batch_size: 1024
   fixed_eval_seed: 419
   generate_on_the_fly: true
 
