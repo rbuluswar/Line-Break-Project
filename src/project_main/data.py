@@ -23,7 +23,7 @@ class Batch:
 
 # Extracts character count from token name
 def extract_character_count(token_name: str) -> int:
-    if token_name == "BOS" or token_name == "\n":
+    if token_name == "BOS" or token_name == "NEWLINE":
         return 0
     else:
         return int(token_name[-1])

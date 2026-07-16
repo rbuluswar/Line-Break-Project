@@ -1,7 +1,7 @@
 experiment:
   name: line_breaks_experiment
   seed: 1729
-  device: mps
+  device: cpu
 
 task:
   name: line_break_prediction
