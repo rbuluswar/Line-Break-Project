@@ -25,6 +25,8 @@ class Batch:
 def extract_character_count(token_name: str) -> int:
     if token_name == "BOS" or token_name == "NEWLINE":
         return 0
+    elif token_name.startswith("LONG_"):
+        return 30
     else:
         return int(token_name[-1])
 
@@ -44,6 +46,24 @@ def insert_newlines(token_ids: list[int], vocab: Vocab, line_size: int) -> list[
             current_line_len = char_count  # Reset line length after newline
         output_token_ids.append(token_id)
     return output_token_ids
+
+
+#Inserts newlines after a line has spilled over the line_size limit.
+def alt_insert_newlines(token_ids: list[int], vocab: Vocab, line_size: int) -> list[int]:
+    current_line_len = 0
+    output_token_ids = []
+
+    for token_id in token_ids:
+        if current_line_len >= line_size:
+            # Insert newline token before the current token
+            output_token_ids.append(vocab.newline_id)
+            current_line_len = 0  # Reset line length after newline
+
+        token_name = vocab.decode_token(token_id)
+        char_count = extract_character_count(token_name)
+        current_line_len += char_count
+        output_token_ids.append(token_id)
+    return output_token_ids 
 
 
 def generate_sequence(
@@ -72,7 +92,7 @@ def generate_sequence(
 
     ##Insert new_lines as necessary
     line_size = task_cfg["line_size"]
-    corrected_token_sequence = insert_newlines(raw_token_sequence, vocab, line_size)
+    corrected_token_sequence = alt_insert_newlines(raw_token_sequence, vocab, line_size)
     cropped_token_sequence = corrected_token_sequence[:seq_len + 1]
 
     input_tokens = cropped_token_sequence[:-1]

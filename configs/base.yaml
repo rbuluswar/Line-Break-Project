@@ -1,13 +1,13 @@
 experiment:
   name: line_breaks_experiment
   seed: 1729
-  device: cpu
+  device: mps
 
 task:
   name: line_break_prediction
   seq_len: 20
   num_token_lengths: 8
-  vocab_size: 18
+  vocab_size: 84
   line_size: 30
   loss_type: "standard" # OR newline_binary
 

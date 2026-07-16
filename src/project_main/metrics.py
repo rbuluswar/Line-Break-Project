@@ -143,6 +143,24 @@ def accuracy_when_target_is(
     return masked_accuracy(logits, targets, mask)
 
 
+@torch.no_grad()
+def accuracy_when_prediction_is(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    token_id: int,
+) -> float:
+    """
+    Accuracy only at positions where the model predicts token_id.
+
+    Example:
+        accuracy when the predicted token is NEWLINE.
+    """
+
+    preds = logits.argmax(dim=-1)
+    mask = preds == token_id
+    return masked_accuracy(logits, targets, mask)
+
+
 
 @torch.no_grad()
 def accuracy_when_target_is_not(
@@ -206,6 +224,11 @@ def special_token_metrics(
 
     return {
         f"accuracy_when_target_is_{token_name}": accuracy_when_target_is(
+            logits=logits,
+            targets=targets,
+            token_id=token_id,
+        ),
+        f"accuracy_when_prediction_is_{token_name}": accuracy_when_prediction_is(
             logits=logits,
             targets=targets,
             token_id=token_id,
