@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-SPECIAL_TOKENS = ("BOS", "NEWLINE", "LONG_A", "LONG_B")
+SPECIAL_TOKENS = ("BOS", "NEWLINE")
 
 
 @dataclass(frozen=True)
