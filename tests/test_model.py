@@ -10,6 +10,7 @@ def test_model_forward_shape():
         "task": {
             "seq_len": 8,
             "vocab_size": 30,
+            "num_token_lengths": 4,
         },
         "model": {
             "n_layers": 2,
@@ -38,4 +39,3 @@ def test_model_forward_shape():
     logits = model(tokens)
 
     assert logits.shape == (4, cfg["task"]["seq_len"], vocab.size)
-

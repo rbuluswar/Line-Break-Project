@@ -10,6 +10,7 @@ def test_save_and_load_checkpoint(tmp_path):
         "task": {
             "seq_len": 8,
             "vocab_size": 30,
+            "num_token_lengths": 4,
         },
         "model": {
             "n_layers": 2,

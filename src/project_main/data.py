@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-from typing import Any
-
 import torch
 
 from project_main.tokens import Vocab
@@ -66,6 +64,60 @@ def alt_insert_newlines(token_ids: list[int], vocab: Vocab, line_size: int) -> l
     return output_token_ids 
 
 
+def get_line_length_range(task_cfg: dict) -> tuple[int, int]:
+    """
+    Return the inclusive range from which each example's line length is drawn.
+
+    ``line_size`` remains supported so that existing saved experiment configs
+    can still be used by the interpretability notebooks.
+    """
+    if "min_line_length" in task_cfg or "max_line_length" in task_cfg:
+        if "min_line_length" not in task_cfg or "max_line_length" not in task_cfg:
+            raise ValueError(
+                "task config must define both min_line_length and max_line_length"
+            )
+        min_line_length = task_cfg["min_line_length"]
+        max_line_length = task_cfg["max_line_length"]
+    elif "line_size" in task_cfg:
+        min_line_length = max_line_length = task_cfg["line_size"]
+    else:
+        raise ValueError(
+            "task config must define min_line_length and max_line_length"
+        )
+
+    if (
+        isinstance(min_line_length, bool)
+        or not isinstance(min_line_length, int)
+        or isinstance(max_line_length, bool)
+        or not isinstance(max_line_length, int)
+    ):
+        raise ValueError("line lengths must be integers")
+    if min_line_length <= 0:
+        raise ValueError("min_line_length must be positive")
+    if min_line_length > max_line_length:
+        raise ValueError(
+            "min_line_length must be less than or equal to max_line_length"
+        )
+
+    return min_line_length, max_line_length
+
+
+def sample_line_length(
+    task_cfg: dict,
+    generator: torch.Generator | None = None,
+) -> int:
+    """Uniformly sample one integer line length for a single example."""
+    min_line_length, max_line_length = get_line_length_range(task_cfg)
+    return int(
+        torch.randint(
+            low=min_line_length,
+            high=max_line_length + 1,
+            size=(),
+            generator=generator,
+        ).item()
+    )
+
+
 def generate_sequence(
     vocab: Vocab,
     task_cfg: dict,
@@ -90,9 +142,13 @@ def generate_sequence(
     
     raw_token_sequence = [vocab.bos_id] + sampled_indices
 
-    ##Insert new_lines as necessary
-    line_size = task_cfg["line_size"]
-    corrected_token_sequence = alt_insert_newlines(raw_token_sequence, vocab, line_size)
+    # Draw one line length for this example and use it for all of its lines.
+    line_length = sample_line_length(task_cfg, generator=generator)
+    corrected_token_sequence = alt_insert_newlines(
+        raw_token_sequence,
+        vocab,
+        line_length,
+    )
     cropped_token_sequence = corrected_token_sequence[:seq_len + 1]
 
     input_tokens = cropped_token_sequence[:-1]
@@ -162,5 +218,4 @@ def make_eval_batch(
         device=device,
         seed=fixed_eval_seed,
     )
-
 
