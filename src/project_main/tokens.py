@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-SPECIAL_TOKENS = ("BOS", "NEWLINE")
+SPECIAL_TOKENS = ("BOS", "_NEWLINE_")
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class Vocab:
     
     @property
     def newline_id(self) -> int:
-        return self.token_to_id["NEWLINE"]
+        return self.token_to_id["_NEWLINE_"]
 
     def encode_token(self, token: str) -> int:
         return self.token_to_id[token]
@@ -78,4 +78,3 @@ def build_vocab(task_cfg: dict) -> Vocab:
         token_to_id=token_to_id,
         id_to_token=id_to_token,
     )
-

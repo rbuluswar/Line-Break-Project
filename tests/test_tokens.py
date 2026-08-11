@@ -10,6 +10,7 @@ def test_special_tokens():
     vocab = build_vocab({"vocab_size": 130, "num_token_lengths": 8})
     assert vocab.bos_id == 0
     assert vocab.newline_id == 1
+    assert vocab.decode_token(vocab.newline_id) == "_NEWLINE_"
 
 
 def test_encode_decode():

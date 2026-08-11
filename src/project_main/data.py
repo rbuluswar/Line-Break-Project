@@ -13,15 +13,19 @@ class Batch:
     targets:
         Target token IDs, shape [batch, seq_len]
         targets[:, i] is the token the model should predict at position i.
+
+    line_lengths:
+        Line length sampled for each example, shape [batch].
     """
     tokens: torch.Tensor
     targets: torch.Tensor
+    line_lengths: torch.Tensor
 
 
 
 # Extracts character count from token name
 def extract_character_count(token_name: str) -> int:
-    if token_name == "BOS" or token_name == "NEWLINE":
+    if token_name == "BOS" or token_name == "_NEWLINE_":
         return 0
     elif token_name.startswith("LONG_"):
         return 30
@@ -122,13 +126,17 @@ def generate_sequence(
     vocab: Vocab,
     task_cfg: dict,
     generator: torch.Generator | None = None,
-) -> tuple[list[int], list[int]]:
+) -> tuple[list[int], list[int], int]:
     """
     Generate the tokens for one sequence.
 
     Returns:
-        content_tokens:
-            A list of length seq_len.
+        input_tokens:
+            Input token IDs, length seq_len.
+        target_tokens:
+            Next-token targets, length seq_len.
+        line_length:
+            The sampled line length used for this sequence.
     """
     seq_len = task_cfg["seq_len"]
 
@@ -157,7 +165,7 @@ def generate_sequence(
     assert len(input_tokens) == seq_len
     assert len(target_tokens) == seq_len
 
-    return input_tokens, target_tokens
+    return input_tokens, target_tokens, line_length
 
 
 
@@ -179,9 +187,10 @@ def make_batch(
 
     all_tokens = []
     all_targets = []
+    all_line_lengths = []
 
-    for example_idx in range(batch_size):
-        tokens, targets = generate_sequence(
+    for _ in range(batch_size):
+        tokens, targets, line_length = generate_sequence(
             vocab=vocab,
             task_cfg=task_cfg,
             generator=generator,
@@ -189,14 +198,21 @@ def make_batch(
 
         all_tokens.append(tokens)
         all_targets.append(targets)
+        all_line_lengths.append(line_length)
        
 
     tokens_tensor = torch.tensor(all_tokens, dtype=torch.long, device=device)
     targets_tensor = torch.tensor(all_targets, dtype=torch.long, device=device)
+    line_lengths_tensor = torch.tensor(
+        all_line_lengths,
+        dtype=torch.long,
+        device=device,
+    )
 
     return Batch(
         tokens=tokens_tensor,
         targets=targets_tensor,
+        line_lengths=line_lengths_tensor,
     )
 
 
@@ -218,4 +234,3 @@ def make_eval_batch(
         device=device,
         seed=fixed_eval_seed,
     )
-

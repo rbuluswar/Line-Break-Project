@@ -30,8 +30,10 @@ def test_batch_shapes():
 
     assert batch.tokens.shape == (4, 8)
     assert batch.targets.shape == (4, 8)
+    assert batch.line_lengths.shape == (4,)
     assert batch.tokens.dtype == torch.long
     assert batch.targets.dtype == torch.long
+    assert batch.line_lengths.dtype == torch.long
 
 
 def test_targets_are_shifted_inputs():
@@ -83,6 +85,7 @@ def test_eval_batch_is_repeatable():
 
     assert torch.equal(batch1.tokens, batch2.tokens)
     assert torch.equal(batch1.targets, batch2.targets)
+    assert torch.equal(batch1.line_lengths, batch2.line_lengths)
 
 
 def test_training_batches_change_without_seed():
@@ -145,7 +148,7 @@ def test_make_batch_draws_one_line_length_per_example(monkeypatch):
 
     monkeypatch.setattr(project_data, "sample_line_length", recording_sampler)
 
-    make_batch(
+    batch = make_batch(
         batch_size=4,
         vocab=vocab,
         task_cfg=cfg,
@@ -155,6 +158,7 @@ def test_make_batch_draws_one_line_length_per_example(monkeypatch):
 
     assert len(sampled_line_lengths) == 4
     assert all(5 <= line_length <= 10 for line_length in sampled_line_lengths)
+    assert batch.line_lengths.tolist() == sampled_line_lengths
 
 
 def test_line_length_range_validation():
@@ -202,6 +206,6 @@ def test_newline_inserted_before_line_overflow():
     assert vocab.decode(wrapped) == [
         "TOKEN_1_3",
         "TOKEN_2_3",
-        "NEWLINE",
+        "_NEWLINE_",
         "TOKEN_3_4",
     ]

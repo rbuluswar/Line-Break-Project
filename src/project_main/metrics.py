@@ -125,6 +125,20 @@ def masked_accuracy(
     return (preds[mask] == targets[mask]).float().mean().item()
 
 
+def at_or_after_first_target_token_mask(
+    targets: torch.Tensor,
+    token_id: int,
+) -> torch.Tensor:
+    """Select positions from the first occurrence of ``token_id`` onward.
+
+    The first occurrence is found independently for each sequence in the
+    batch. A sequence that does not contain ``token_id`` has no selected
+    positions.
+    """
+
+    return (targets == token_id).cumsum(dim=-1) > 0
+
+
 
 @torch.no_grad()
 def accuracy_when_target_is(
@@ -136,10 +150,23 @@ def accuracy_when_target_is(
     Accuracy only at positions where the correct next token is token_id.
 
     Example:
-        accuracy when the target token is NEWLINE.
+        accuracy when the target token is _NEWLINE_.
     """
 
     mask = targets == token_id
+    return masked_accuracy(logits, targets, mask)
+
+
+@torch.no_grad()
+def accuracy_when_target_is_from_first_target(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    token_id: int,
+) -> float:
+    """Accuracy where the target is ``token_id``, from its first occurrence."""
+
+    from_first_target = at_or_after_first_target_token_mask(targets, token_id)
+    mask = (targets == token_id) & from_first_target
     return masked_accuracy(logits, targets, mask)
 
 
@@ -153,11 +180,25 @@ def accuracy_when_prediction_is(
     Accuracy only at positions where the model predicts token_id.
 
     Example:
-        accuracy when the predicted token is NEWLINE.
+        accuracy when the predicted token is _NEWLINE_.
     """
 
     preds = logits.argmax(dim=-1)
     mask = preds == token_id
+    return masked_accuracy(logits, targets, mask)
+
+
+@torch.no_grad()
+def accuracy_when_prediction_is_from_first_target(
+    logits: torch.Tensor,
+    targets: torch.Tensor,
+    token_id: int,
+) -> float:
+    """Accuracy where the prediction is ``token_id``, from its first target."""
+
+    preds = logits.argmax(dim=-1)
+    from_first_target = at_or_after_first_target_token_mask(targets, token_id)
+    mask = (preds == token_id) & from_first_target
     return masked_accuracy(logits, targets, mask)
 
 
@@ -172,7 +213,7 @@ def accuracy_when_target_is_not(
     Accuracy only at positions where the correct next token is not token_id.
 
     Example:
-        accuracy when the target token is not NEWLINE.
+        accuracy when the target token is not _NEWLINE_.
     """
 
     mask = targets != token_id
@@ -232,6 +273,20 @@ def special_token_metrics(
             logits=logits,
             targets=targets,
             token_id=token_id,
+        ),
+        f"accuracy_when_target_is_{token_name}_from_first_{token_name}": (
+            accuracy_when_target_is_from_first_target(
+                logits=logits,
+                targets=targets,
+                token_id=token_id,
+            )
+        ),
+        f"accuracy_when_prediction_is_{token_name}_from_first_{token_name}": (
+            accuracy_when_prediction_is_from_first_target(
+                logits=logits,
+                targets=targets,
+                token_id=token_id,
+            )
         ),
         f"accuracy_when_target_is_not_{token_name}": accuracy_when_target_is_not(
             logits=logits,
