@@ -9,6 +9,7 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
+    "plotly",
     "einops",
     "tqdm",
     "pytest",
