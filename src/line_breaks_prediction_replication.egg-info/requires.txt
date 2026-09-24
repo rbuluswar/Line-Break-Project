@@ -1,0 +1,11 @@
+torch
+transformer-lens
+pyyaml
+numpy
+pandas
+matplotlib
+plotly
+einops
+tqdm
+pytest
+ipykernel
