@@ -1,0 +1,196 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\title{Learning to Predict Synthetic Line Breaks}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This project studies how a small Transformer learns a simple but structured
+sequence-processing task: inserting line breaks into a stream of tokens so
+that each line respects a character-length budget.  The task is deliberately
+synthetic, which makes the underlying rule completely known and provides a
+controlled setting for studying what computations emerge inside the model.
+This document summarizes the current model, data generator, and training
+procedure, as well as the present direction of the project.
+\end{abstract}
+
+\section{Motivation and connection to prior work}
+
+This project was directly inspired by Anthropic's study of line breaking in
+\emph{When Models Manipulate Manifolds: The Geometry of a Counting Task}
+\cite{gurnee2026manipulate}.  That work investigates how Claude 3.5 Haiku
+predicts line breaks in fixed-width text, even though the model receives text
+as a sequence of tokens rather than as an explicitly rendered visual layout.
+The authors find evidence that the model internally represents character
+counts using low-dimensional, curved manifolds.  These manifolds are further
+organized by sparse feature families, reminiscent of place-cell-like coding:
+different features become active in different regions of the underlying count
+space.
+
+The paper describes line breaking as a sequence of geometric computations.
+Token lengths are accumulated into a representation of the current character
+count; attention heads then transform, or ``twist,'' this representation to
+estimate the distance to the line boundary.  Finally, the relevant estimates
+are arranged so that the newline decision can be made with a comparatively
+simple linear separation in activation space.  Causal interventions support
+the functional role of these representations and computations, and the paper
+also constructs visual illusions in which carefully chosen character
+sequences interfere with the model's counting mechanism.
+
+The goal here is to test how much of this structure arises from the task
+itself.  Rather than analyzing a large pretrained language model with broad
+linguistic and visual-text experience, this project trains a small Transformer
+from scratch on a synthetic line-breaking task.  The model sees no natural
+language and is optimized only to predict the output of the wrapping rule
+described below.  This creates a deliberately stripped-down setting in which
+any count-like manifolds, phase-like trajectories, or attention-based boundary
+computations can be attributed more directly to the demands of the task.  The
+main question is therefore not whether this toy model reproduces every detail
+of Anthropic's findings, but whether similar representational and geometric
+motifs emerge when the model has to learn the same abstract computation with
+minimal prior structure.
+
+\section{Overview}
+
+The central task is next-token prediction on sequences that contain ordinary
+tokens and a special newline token.  Each ordinary token represents a piece
+of text with a known character length.  Given a randomly generated stream of
+ordinary tokens and a line-length constraint, the data generator inserts
+newlines according to a deterministic wrapping procedure.  The Transformer is
+then asked to predict the resulting token sequence one position at a time.
+
+Although the surface task is small, it combines several ingredients that are
+useful for mechanistic analysis: the model must keep track of an accumulated
+quantity (the number of characters on the current line), recognize when a
+threshold has been reached, and emit a special token at the appropriate
+position.  The project therefore uses the trained model as both a predictor
+and an object of study.  The repository contains experiments probing token
+representations, attention patterns, residual-stream geometry, and the effect
+of activation interventions.
+
+\section{Model architecture}
+
+The model is a causal, decoder-only Transformer implemented with
+\texttt{TransformerLens}.  It receives a sequence of token IDs and produces a
+logit vector over the vocabulary at every position.  Because the model is
+causal, the prediction at position $t$ can depend only on the tokens at
+positions up to and including $t$; this matches the online nature of line
+wrapping.
+
+The current baseline has three Transformer layers and four attention heads per
+layer.  The residual stream has width $d_{\mathrm{model}}=128$, each attention
+head has dimension $d_{\mathrm{head}}=32$, and the feed-forward sublayer has
+width $d_{\mathrm{MLP}}=512$.  The activation function is GELU, layer
+normalization is used, and standard learned positional embeddings provide
+position information.  The vocabulary contains 82 tokens, including a
+beginning-of-sequence token (BOS) and a dedicated newline token.  The remaining
+80 tokens are divided evenly among eight token-length categories, corresponding
+to character lengths from 1 through 8.
+
+In a standard Transformer block, attention allows each position to aggregate
+information from earlier positions, while the MLP sublayer applies a
+position-wise nonlinear transformation.  For this task, these components give
+the model several possible ways to represent the current line state and to
+convert that state into a newline decision.  The project does not impose an
+explicit counter or a hand-designed newline circuit; these quantities must be
+learned from the training examples.
+
+\section{Synthetic data generation}
+
+Each example is generated independently and on the fly.  First, the generator
+samples a sequence of ordinary token IDs uniformly from the non-special part
+of the vocabulary.  A BOS token is prepended.  It then samples one integer line
+length uniformly for the whole example.  In the current baseline, this line
+length is sampled from the inclusive range 50--100, so different examples can
+require different wrapping thresholds.
+
+To construct the target sequence, the generator scans the token stream from
+left to right while maintaining the number of characters on the current line.
+When the current line has reached the sampled limit before the next token is
+processed, the generator inserts the newline token immediately before that
+token and resets the line counter.  The character contribution of a token is
+determined by its token-length category.  Thus, the newline position depends on
+both the token history and the example-specific line-length condition.
+
+The resulting sequence is cropped to the configured context length after
+wrapping.  The model input consists of the first $L$ tokens and the target at
+position $t$ is the following token, giving the usual shifted next-token
+prediction setup:
+\[
+    x_t = s_t, \qquad y_t = s_{t+1}, \qquad t=1,\ldots,L.
+\]
+The current context length is $L=150$.  Batches are generated during training
+rather than drawn from a fixed corpus, which makes it inexpensive to vary the
+line-length range and avoids memorization of a finite set of sequences.
+
+For evaluation, a separate batch is generated using a fixed random seed.  This
+does not make the task deterministic during training, but it does make metric
+comparisons across checkpoints and training runs more reproducible.
+
+\section{Training objective and procedure}
+
+The model is trained with standard categorical cross-entropy over every
+position and every vocabulary item.  If $z_{t,v}$ denotes the logit for
+vocabulary item $v$ at position $t$, the loss for a batch is
+\[
+    \mathcal{L}
+    = -\frac{1}{BL}\sum_{b=1}^{B}\sum_{t=1}^{L}
+      \log p_\theta\!\left(y_{b,t}\mid x_{b,\leq t}\right),
+\]
+where $B$ is the batch size.  Newline prediction is therefore learned as part
+of the same full-vocabulary language-modeling objective; it is not currently
+treated as a separate binary classification problem.
+
+The baseline uses batches of 256 sequences and trains for 10,000 optimization
+steps.  Parameters are updated with AdamW using learning rate $10^{-3}$,
+weight decay $0.01$, and momentum parameters $(\beta_1,\beta_2)=(0.9,0.95)$.
+The learning rate is warmed up for 500 steps and then decayed approximately
+cosine-wise to $10^{-4}$.  Gradients are clipped to have maximum global norm
+1.0.  The configured random seed is recorded with each experiment, and the
+training script saves configuration files and periodic checkpoints.
+
+Performance is monitored with overall next-token accuracy and loss.  Because
+overall accuracy can obscure the behavior of a relatively infrequent special
+token, the evaluation code also reports newline-specific metrics, including
+accuracy when the target is a newline and accuracy when it is not.  These
+metrics provide a more direct view of whether the model has learned the
+line-breaking rule rather than merely modeling the ordinary-token majority.
+
+\section{Current progress and next steps}
+
+The codebase now contains a reproducible training and evaluation pipeline,
+checkpointing, token-level tests, and a collection of interpretability
+notebooks.  The existing analyses examine, among other things, attention to
+previous newline tokens, probes for character counts, activation trajectories,
+head ablations, and the geometry of query--key interactions near the final
+prediction layer.  These experiments are intended to connect behavioral
+success on line breaking to specific internal representations and circuits.
+
+The next stage of the write-up will add quantitative training curves and a
+clear account of the strongest mechanistic findings.  It will also be useful
+to compare models trained with fixed versus variable line lengths, and to
+separate the representation of the current line's character count from other
+state variables such as line position or the identity of the previous newline.
+
+\begin{thebibliography}{1}
+
+\bibitem{gurnee2026manipulate}
+Wes Gurnee, Emmanuel Ameisen, Isaac Kauvar, Julius Tarng, Adam Pearce,
+Chris Olah, and Joshua Batson.
+\newblock When Models Manipulate Manifolds: The Geometry of a Counting Task.
+\newblock Anthropic, 2026.
+\newblock \url{https://arxiv.org/abs/2601.04480}.
+
+\end{thebibliography}
+
+\end{document}
