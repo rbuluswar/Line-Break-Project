@@ -5,6 +5,7 @@
 \usepackage{booktabs}
 \usepackage{microtype}
 \usepackage{hyperref}
+\usepackage{graphicx}
 
 \title{Learning to Predict Synthetic Line Breaks}
 \author{}
@@ -165,6 +166,121 @@ token, the evaluation code also reports newline-specific metrics, including
 accuracy when the target is a newline and accuracy when it is not.  These
 metrics provide a more direct view of whether the model has learned the
 line-breaking rule rather than merely modeling the ordinary-token majority.
+
+\section{Approximation and intervention results}
+
+The following table compares several ways of replacing the true activation
+before the final attention layer. The MSE and variance-reduction columns
+measure activation reconstruction on held-out examples. For the intervention
+columns, the predicted activations are inserted into the model and the
+remaining computation is run normally. ``Global PCA'' means projection onto
+and reconstruction from the global three-dimensional PCA subspace; the spline
+models use the phase features described above. Values are rounded to the
+precision useful for comparison.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Approximation & MSE & Var. reduction & NL precision & NL recall \\
+\midrule
+Clean model (no replacement) & --- & --- & 0.519 & 1.000 \\
+Global 3D PCA & 0.558 & 88.4\% & 0.458 & 0.993 \\
+Phase-only spline & 2.537 & 47.3\% & 0.219 & 1.000 \\
+Phase + one line vector & 1.808 & 62.4\% & 0.219 & 0.951 \\
+Separate line offsets & 1.364 & 71.6\% & 0.181 & 0.503 \\
+Unconstrained phase + line & 1.685 & 65.1\% & 0.235 & 0.977 \\
+Orthogonal phase + line & 1.761 & 63.6\% & 0.228 & 0.932 \\
+Random 3D subspace & $4.721\pm0.051$ & $2.3\pm1.0\%$ & $0.350\pm0.393$ & $0.211\pm0.348$ \\
+\bottomrule
+\end{tabular}
+\caption{Activation approximations and behavioral interventions. NL denotes
+newline. The spline-hierarchy rows are from Notebook 25; the final two rows
+are from the constrained decomposition experiment in Notebook 26. The random
+subspace row reports mean $\pm$ standard deviation over 20 independent
+subspaces.}
+\label{tab:activation-approximations}
+\end{table}
+
+The models in Table~\ref{tab:activation-approximations} have different
+interpretations. The clean model is the original Transformer, with no
+activation replacement, and therefore serves as the behavioral reference.
+Global 3D PCA is not a learned predictor of the trajectory: each true
+activation is projected onto the first three global PCA directions and then
+reconstructed. It tests how much information is retained by a generic
+low-dimensional subspace. The phase-only spline model predicts the activation
+from normalized within-line phase, while phase plus one line vector adds a
+single learned direction whose coefficient depends on the example's line
+index. Separate line offsets instead gives each line index its own learned
+offset, allowing a richer line-dependent component. The unconstrained phase
+plus line model uses the same phase features and one line-dependent direction
+without requiring the two components to be orthogonal. Finally, the
+orthogonal phase plus line model imposes that the phase coefficient subspace
+has zero inner product with the line-number direction; this is the direct
+test of an approximately separable line component and phase manifold.
+The random 3D subspace baseline uses the same projection-and-reconstruction
+procedure as global PCA, but replaces the PCA directions with an independently
+sampled orthonormal basis. It therefore measures the reconstruction and
+behavior obtained from an arbitrary three-dimensional subspace.
+
+Notebook 26 tests a more specific version of the trajectory hypothesis. Let
+$h(c,\ell)$ denote the activation before the final attention layer at
+character count $c$ in an example with line-length constraint $\ell$. We fit
+models of the form
+\[
+ h(c,\ell) \approx \mu + f(\text{phase}(c,\ell)) + g(\ell),
+\]
+where the phase term is represented by cubic B-spline features. The key
+constrained model uses a single line-number direction $v$ and projects every
+phase coefficient into the orthogonal complement of $v$:
+\[
+ h(c,\ell) \approx \mu + v\,s(\ell) + W z(\text{phase}(c,\ell)),
+ \qquad W^{\mathsf T}v=0.
+\]
+
+On held-out data, the unconstrained phase-plus-one-line model achieved MSE
+$1.685$ and variance reduction $65.1\%$. The constrained orthogonal model
+achieved MSE $1.761$ and variance reduction $63.6\%$; its fitted line/phase
+dot product was $6.2\times 10^{-4}$. The small cost of enforcing
+orthogonality supports an approximately separable phase--line description,
+while the stronger separate-line-offset model shows that line number is not
+fully captured by one shared direction.
+
+As an additional control, we generated 20 independent orthonormal random
+three-dimensional subspaces. Each held-out activation was mean-centered,
+projected into one such subspace, and reconstructed by projecting back and
+adding the mean. These random subspaces retained only $2.3\%\pm1.0\%$ of the
+activation variance, compared with $88.4\%$ for the PCA reconstruction. Their
+newline behavior was correspondingly unstable: the mean newline precision was
+$0.350\pm0.393$ and recall was $0.211\pm0.348$, with 9 of 20 trials producing
+no newline predictions at all. This provides a useful null baseline: the
+behavior of the learned phase/line models is not explained merely by replacing
+the activation with an arbitrary three-dimensional projection.
+
+The phase coefficient matrix is strongly low-rank: its first two singular
+directions explain $94.8\%$ of the fitted phase variance. This supports the
+qualitative picture of a two-dimensional curved or rotating phase manifold,
+but does not establish that the curve is circular or literally a spiral.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/constrained_line_phase_trajectory.png}
+    \caption{Held-out activation trajectory before the final attention layer,
+    shown in a global three-dimensional PCA basis. The actual trajectory is
+    black; dashed curves show the unconstrained phase-plus-line model, the
+    separate-line-offset model, and the orthogonally constrained model. The
+    origin is shown in black.}
+    \label{fig:constrained-line-phase}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/activation_trajectory_character_count.png}
+    \caption{A held-out trajectory in global PCA coordinates, with points
+    colored by current character count.}
+    \label{fig:activation-trajectory-count}
+\end{figure}
 
 \section{Current progress and next steps}
 
