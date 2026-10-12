@@ -167,7 +167,7 @@ accuracy when the target is a newline and accuracy when it is not.  These
 metrics provide a more direct view of whether the model has learned the
 line-breaking rule rather than merely modeling the ordinary-token majority.
 
-\section{Approximation and intervention results}
+\section{Activation trajectories before layer 2}
 
 The following table compares several ways of replacing the true activation
 before the final attention layer. The MSE and variance-reduction columns
@@ -225,17 +225,17 @@ sampled orthonormal basis. It therefore measures the reconstruction and
 behavior obtained from an arbitrary three-dimensional subspace.
 
 Notebook 26 tests a more specific version of the trajectory hypothesis. Let
-$h(c,\ell)$ denote the activation before the final attention layer at
-character count $c$ in an example with line-length constraint $\ell$. We fit
-models of the form
+$h(c,\ell,k)$ denote the activation before the final attention layer at
+character count $c$, line-length constraint $\ell$, and current line index
+$k$. We fit models of the form
 \[
- h(c,\ell) \approx \mu + f(\text{phase}(c,\ell)) + g(\ell),
+ h(c,\ell,k) \approx \mu + f(\text{phase}(c,\ell)) + g(k),
 \]
 where the phase term is represented by cubic B-spline features. The key
 constrained model uses a single line-number direction $v$ and projects every
 phase coefficient into the orthogonal complement of $v$:
 \[
- h(c,\ell) \approx \mu + v\,s(\ell) + W z(\text{phase}(c,\ell)),
+ h(c,\ell,k) \approx \mu + v k + W z(\text{phase}(c,\ell)),
  \qquad W^{\mathsf T}v=0.
 \]
 
@@ -263,6 +263,16 @@ directions explain $94.8\%$ of the fitted phase variance. This supports the
 qualitative picture of a two-dimensional curved or rotating phase manifold,
 but does not establish that the curve is circular or literally a spiral.
 
+Taken together, these results support a compact but not complete description
+of the activation: normalized within-line phase supplies the main curved
+trajectory, while line index supplies an additional approximately separable
+offset. The success of the learned models, their near-orthogonality, and the
+large gap from random subspaces provide evidence for genuine structure rather
+than a visualization artifact. The residual error and the loss of newline
+precision under activation replacement show that phase and line index do not
+yet constitute a sufficient statistic for the full next-token computation;
+line-width-dependent and token- or history-dependent information remains.
+
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figures/constrained_line_phase_trajectory.png}
@@ -281,6 +291,520 @@ but does not establish that the curve is circular or literally a spiral.
     colored by current character count.}
     \label{fig:activation-trajectory-count}
 \end{figure}
+
+The results above concern the structure of the activation that is already
+present before the final attention computation.  In particular, they ask how
+well that activation can be reconstructed from low-dimensional phase and
+line-dependent coordinates, without yet explaining which earlier components
+write those coordinates into the residual stream.  The next section begins
+that causal account by examining the attention heads in the preceding layers.
+
+\section{How earlier attention heads construct the activations}
+
+The activation-trajectory analysis identifies a compact object to explain:
+the residual stream immediately before layer 2 attention.  Notebook 28 begins
+to localize its construction by intervening on the outputs of the four heads
+in layer 1.  The notebook uses the head-output tensor
+\texttt{blocks.1.attn.hook\_z}; at each token position, a zero ablation
+replaces the selected head's output vector with the zero vector while leaving
+the other layer-1 heads and the rest of the model unchanged.  The resulting
+forward pass is evaluated on 500 independently generated sequences.  The
+newline metrics are computed from the model's next-token predictions, and the
+intervention's effect on the downstream representation is measured at
+\texttt{blocks.2.hook\_resid\_pre}, the residual stream immediately before
+layer 2 attention.
+
+For the activation comparison, the notebook also estimates a mean replacement
+vector for each head from 1,024 calibration sequences, uses batches of 64, and
+reports the MSE against the clean layer-2-pre activations.  It fits a separate
+three-component PCA to each condition and reports the fraction of that
+condition's activation variance captured by its first three components.  The
+behavioral reference is the clean model evaluated on the same 500-sequence
+draw.  Head labels below are zero-based, matching the notebook: ``head 0''
+is the first layer-1 head and ``head 2'' is the third.
+
+\subsection{When the character-count feature emerges}
+
+Notebook 08 uses the same train/evaluation construction at each site around
+layer 1, excluding BOS and newline positions. A standardized ridge probe for
+cumulative character count achieves held-out $R^2=0.481$ before layer-1
+attention, $0.979$ after layer-1 attention and before the MLP, $0.998$ on the
+MLP branch output, and $0.997$ after the complete layer-1 block. The feature
+therefore becomes strongly linearly readable at the attention update, while
+the MLP mainly refines and calibrates the representation. This is evidence
+about when the feature emerges, not by itself evidence that attention performs
+a literal scalar addition.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Zero-ablated heads & NL precision & NL recall & NL frequency & MSE vs. clean & PCA3 variance \\
+\midrule
+None (clean) & 0.5234 & 0.9998 & 0.1026 & 0.000000 & 88.47\% \\
+0 & 0.4707 & 0.8935 & 0.1020 & 0.804002 & 90.76\% \\
+1 & 0.0000 & 0.0000 & 0.0333 & 9.527190 & 92.98\% \\
+2 & 0.5194 & 0.9677 & 0.1001 & 0.364743 & 89.42\% \\
+3 & 0.4459 & 0.5809 & 0.0700 & 0.573709 & 89.39\% \\
+\bottomrule
+\end{tabular}
+\caption{Single-head zero ablations in layer 1 from Notebook 28. NL denotes
+newline. Head IDs are zero-based.}
+\label{tab:layer1-zero-ablation}
+\end{table}
+
+The most direct result is that head 2 is functionally close to dispensable for
+the newline decision in this model: zeroing it changes precision by only
+$0.0039$ and recall by $0.0321$ relative to the clean condition.  Its
+downstream activation MSE is also the smallest of the four single-head
+ablations ($0.364743$).  Head 0 is less dispensable but still not individually
+essential: its zero ablation lowers precision by $0.0527$ and recall by
+$0.1063$, while retaining a newline prediction frequency of $0.1020$.
+These are functional statements about the trained circuit, not claims that
+the heads have identical representations: the PCA3 variance is computed
+within each intervened condition and therefore does not by itself measure
+closeness to the clean trajectory.
+
+The contrast with head 1 is useful for interpreting the result.  Zeroing head
+1 eliminates all newline predictions in this evaluation, while head 3 causes
+a substantial recall loss.  Thus, layer-1 heads are not interchangeable
+contributors to the pre-layer-2 trajectory: at least one head carries a strong
+causal contribution to the newline computation, while head 2 contributes
+little detectable function under this intervention.  The fact that head 2's
+zero ablation changes the layer-2-pre activation at all, despite its small
+behavioral effect, also leaves open the possibility that it writes redundant
+or behaviorally irrelevant structure into the trajectory.
+
+\subsection{Layer-1 head 1 carries the character-count feature}
+
+Notebook 09 localizes the representation more specifically by probing
+cumulative character count.  It uses the same 256 training and 256 evaluation
+sequences at every site, excludes BOS and newline positions, and fits
+standardized linear ridge probes for the count after the current token.  It
+probes both each head's raw \texttt{blocks.1.attn.hook\_z} output and its
+residual-stream contribution $z_hW_{O,h}$.  Head 1 is exceptional: its raw
+output gives held-out count $R^2=0.975$ with MAE $2.91$, and its residual
+contribution gives $R^2=0.974$ with MAE $2.96$.  The corresponding $R^2$
+values for heads 0, 2, and 3 are only $0.097$, $0.141$, and $0.112$.
+Within the limits of a linear probe, head 1 therefore carries nearly all of
+the count information accessible from the full pre-MLP residual stream.
+
+This is also causal.  A ridge probe trained on the clean post-layer-1
+activation has held-out $R^2=0.997$ and MAE $0.99$.  Applying this fixed probe
+after zero-ablating individual layer-1 heads gives $R^2=0.990$ (head 0),
+$-1.287$ (head 1), $0.967$ (head 2), and $0.928$ (head 3).  The negative
+$R^2$ after removing head 1 means that the clean count readout becomes worse
+than a constant mean prediction; its MAE rises to $29.96$.  The intervention
+therefore identifies head 1 as the dominant causal writer of the count
+feature, not merely a head whose output correlates with count.
+
+This result should be stated narrowly.  It establishes that head 1 is the
+main carrier of a linearly readable cumulative-count coordinate, not yet that
+it implements a literal scalar accumulator.  Head 3 causes a noticeable
+degradation of the count readout without carrying much count information by
+itself, suggesting a supporting boundary or geometric role.  The layer-1 MLP
+then refines the head-1-produced representation before it is passed to layer
+2.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/layer1_head_count_probes.png}
+    \caption{Head-wise linear probes for cumulative character count from
+    layer-1 head outputs.  Raw $z$ outputs and residual-space contributions
+    $zW_O$ give nearly identical results; head 1 is the only head with high
+    count $R^2$ and low count MAE.}
+    \label{fig:layer1-head-count-probes}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figures/layer1_head_count_ablation.png}
+    \caption{Held-out $R^2$ of a clean post-layer-1 count probe after
+    zero-ablating each individual layer-1 head.  The clean probe is not
+    refit after ablation, so this measures survival of the original count
+    feature.}
+    \label{fig:layer1-head-count-ablation}
+\end{figure}
+
+As a concrete example of the attention computation, Notebook 15 visualizes
+the full attention pattern for layer-1 head 1 on one seeded input.  The
+example uses seed 15002 and sampled line width 52.  Columns are query
+positions and rows are key positions, with causal masking producing the
+triangular support.  The strongest horizontal bands in this example occur at
+the positions of previous newline tokens, consistent with head 1 retrieving
+line-boundary information.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/notebook15_layer1_head1_attention.png}
+    \caption{Single-example attention pattern for layer 1, head 1 (zero-based)
+    from Notebook 15.  The input uses seed 15002 and line width 52.  Columns
+    are query positions, rows are key positions, and color indicates attention
+    weight.}
+    \label{fig:layer1-head1-attention-example}
+\end{figure}
+
+The other layer-1 heads show substantially different example-level attention
+patterns.  Head 0 has a strong early-key pattern, whereas heads 2 and 3 are
+more diffuse in this example.  These plots are descriptive rather than causal;
+the ablation table supplies the causal comparison.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/notebook15_layer1_all_heads_attention.png}
+    \caption{Example attention patterns for all four layer-1 heads from
+    Notebook 15, using seed 15002 and line width 52.  Each panel uses the same
+    color scale; columns are query positions and rows are key positions.}
+    \label{fig:layer1-all-head-attention}
+\end{figure}
+
+\subsection{Line geometry before the layer-1 MLP}
+
+The head-isolation results identify causal contributors, but they do not by
+themselves describe the geometry that those contributors construct.  Notebook
+11 analyzes that geometry at
+\texttt{blocks.1.hook\_resid\_mid}, the residual stream after layer-1
+attention and before the layer-1 MLP.  We generated 128 examples, identified
+the contiguous ordinary-token segments between newline tokens, and retained
+1,143 segments containing at least four ordinary tokens.  For each segment we
+fit a separate one-dimensional PCA line to the activation vectors.  As a
+held-out check, the line was fit using alternating token positions and tested
+on the remaining positions.
+
+The segments are strongly line-like.  The rank-one reconstruction $R^2$ was
+$0.926$ on average (median $0.944$), and the alternating-token held-out
+$R^2$ averaged $0.892$ (median $0.920$).  Thus, before the MLP, the model
+usually places the tokens within a line segment near a one-dimensional line
+segment in activation space.  This result is consistent with the visual
+observation that tokens between two newline boundaries form a compact,
+ordered trajectory rather than an unstructured cloud.
+
+We next tested the stronger hypothesis that movement along this line is
+proportional to the character length of the earlier token.  After projecting
+each segment onto its fitted line, we regressed both the signed adjacent
+displacement and the Euclidean distance between adjacent activations on the
+preceding token's character length.  The median $R^2$ values were only
+$0.068$ for signed displacement and $0.053$ for Euclidean distance.  The
+corresponding median correlations were negative ($-0.206$ and $-0.137$),
+despite the fact that $92.5\%$ of adjacent signed steps were positive on
+average.  The trajectory therefore tends to progress in one direction, but
+longer tokens do not produce proportionally larger local steps.
+
+A joint scalar-coordinate model makes the same point.  Predicting the
+coordinate from both token position and cumulative character count achieved
+mean $R^2=0.979$ (median $0.986$), but token position alone already achieved
+mean $R^2=0.969$ (median $0.981$).  A pooled spacing regression had correlation
+$-0.108$ and $R^2=0.012$, while within-segment shuffled-length controls had
+mean correlation approximately $0.001$.  These results do not show that
+token length is absent from the network; they show that the layer-1
+attention-to-residual transformation does not expose token length as a simple
+proportional spacing rule in this pre-MLP trajectory.  The evidence instead
+supports a distinction between a strong one-dimensional line geometry and a
+weaker, currently unsupported character-length metric along that line.
+
+This also qualifies the interpretation of the head-1 ablation.  Head 1 is
+behaviorally indispensable and attends substantially to newline keys, but the
+resulting line geometry should not yet be described as a literal token-length
+counter.  The layer-1 MLP may further transform the line: zeroing its output
+produced post-layer-1 activation MSE $5.91$ in the corresponding single-example
+diagnostic.  The present analysis therefore localizes a robust geometric
+intermediate without assigning the full counting computation to one attention
+head or to a single scalar token-length coordinate.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/notebook11_pre_mlp_segment_lines.png}
+    \caption{Post-attention, pre-MLP activation trajectory for a seeded layer-1
+    example.  Each colored curve is one newline-delimited segment in a shared
+    three-dimensional PCA basis; dashed curves are the corresponding
+    within-segment rank-one line fits.  This illustrates the geometry tested
+    quantitatively across 1,143 segments in Notebook 11.}
+    \label{fig:pre-mlp-segment-lines}
+\end{figure}
+
+\subsection{Trajectories before each layer}
+
+For context, Notebook 20 follows the same example at the residual stream
+immediately before each attention layer.  The trajectory before layer 0 is
+relatively diffuse, the trajectory before layer 1 is already more structured,
+and the trajectory before layer 2 has the large-scale organized geometry
+analyzed above.  Each panel in Figure~\ref{fig:before-each-layer} uses its own
+three-dimensional PCA basis, so the panels should be compared qualitatively
+rather than by their absolute PCA coordinates.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/notebook20_activation_trajectories_before_each_layer.png}
+    \caption{Activation trajectories before attention layers 0, 1, and 2 for
+    Notebook 20's seeded example (seed 19003, example 27, line width 61).
+    Each panel is shown in a separately fitted three-dimensional PCA basis.}
+    \label{fig:before-each-layer}
+\end{figure}
+
+Taken together, the current evidence supports the following construction
+story.  The embedding, positional stream, and layer 0 first create a
+line-conditioned state, although the specific layer-0 circuit remains to be
+localized.  Layer-1 attention then retrieves newline-boundary information and
+constructs the main line-progress feature.  Head 1 is especially important:
+its output alone carries nearly all of the linearly readable cumulative
+character-count signal, and zeroing it destroys the downstream count
+representation as well as newline behavior.  Its newline-key values are also
+causally relevant.  The resulting post-attention, pre-MLP residual stream organizes
+tokens within each line into an approximately one-dimensional ordered
+trajectory.  That trajectory is not a simple character-length metric: local
+spacing is not proportional to the preceding token length.  Finally, the
+layer-1 MLP makes another substantial geometric transformation, producing the
+activation that enters layer 2 at
+\texttt{blocks.2.hook\_resid\_pre}.  This identifies a robust intermediate
+representation while leaving the exact division of labor between layer-0
+components, the layer-1 OV circuit, and the layer-1 MLP as open questions.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/notebook28_layer1_zero_ablation_metrics.png}
+    \caption{Newline precision and recall after zero-ablating each individual
+    layer-1 head, reproduced from the executed results of Notebook 28. The
+    clean condition is shown for reference; head IDs are zero-based.}
+    \label{fig:notebook28-layer1-zero-metrics}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/notebook28_layer1_zero_ablation_activations.png}
+    \caption{Downstream activation diagnostics for the same zero ablations.
+    MSE is measured against the clean activation at
+    \texttt{blocks.2.hook\_resid\_pre}; PCA3 variance is the variance
+    explained by an independently fitted three-dimensional PCA in each
+    condition.}
+    \label{fig:notebook28-layer1-zero-activations}
+\end{figure}
+
+\section{How layer 2 uses the pre-layer-2 activation}
+
+The preceding section describes the geometry constructed by the first two
+layers.  The next question is how the final attention layer reads that
+geometry to decide whether the next token should be a newline.  The relevant
+input is the residual stream at
+\texttt{blocks.2.hook\_resid\_pre}, which is the post-layer-1 activation.
+The most useful analysis so far concerns the final layer's query--key scores:
+content-token queries are compared against newline-token keys, and the
+resulting attention output is then used by the final MLP and unembedding.
+
+\subsection{Which final-layer heads matter?}
+
+Notebook 13 independently mean-ablates each attention head by replacing its
+\texttt{hook\_z} output at every position with a mean vector estimated from a
+separate calibration set (2,048 sequences), then evaluates newline metrics on
+1,024 held-out sequences.  The unablated baseline is recall $0.9998$,
+precision $0.5185$, and newline-prediction frequency $0.1029$.  Among the
+layer-2 heads, mean-ablating head 1 gives recall $0.9999$, precision $0.4042$,
+and frequency $0.1321$; head 3 gives recall $0.7439$, precision $0.4818$,
+and frequency $0.0824$.  Thus head 1 has the largest layer-2 precision
+effect in this intervention, whereas head 3 has the largest recall effect.
+Zero ablation gives the same qualitative picture: layer-2 head 3 reduces
+recall to $0.9226$ and precision to $0.4506$, while layer-2 head 1 leaves
+recall at $0.9935$ and precision at $0.4989$.  The final decision is
+therefore distributed across heads; head 3 is the clearest single head for
+the boundary-scoring mechanism, but it is not the sole carrier of the
+newline computation.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/layer2_head_ablation_metrics.png}
+    \caption{Newline recall, precision, and prediction frequency after
+    independently mean-ablating every attention head.  Each cell is one
+    intervention; the baseline is shown in each panel.  Layer-2 head 1 is
+    particularly important for precision, while head 3 is particularly
+    important for recall.}
+    \label{fig:layer2-head-ablation-metrics}
+\end{figure}
+
+Notebook 07 gives the complementary descriptive result.  It averages the
+attention paid to the actual most recent preceding newline over 5,000
+sequences (619,160 valid content-token queries), indexed by token position
+within the current line and normalizing each head by its own maximum.  In
+layer 2, head 0 starts with high attention and decays across the line, head 1
+decays very rapidly, while head 3 grows toward later within-line positions.
+Head 2 is more irregular and has a late-position peak.  This makes the
+attention pattern look like a collection of boundary- and position-sensitive
+features rather than a single uniform ``attend to the newline'' operation.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/layer2_previous_newline_attention.png}
+    \caption{Mean attention to the actual previous newline as a function of
+    within-line token position for all four heads in layer 2.  Curves are
+    independently normalized by their maximum; the plot is descriptive and
+    does not by itself establish causal importance.}
+    \label{fig:layer2-previous-newline-attention}
+\end{figure}
+
+\subsection{QK geometry: queries encode progress, keys encode the line}
+
+Several notebooks study the query--key computation directly.  In Notebook
+10, character-count and line-width probe directions are passed through the
+next block's layer normalization and affine $W_Q/W_K$ maps.  The resulting
+joint PCA is especially low-dimensional for layer-2 head 3: its first three
+components explain $75.96\%$, $9.72\%$, and $6.74\%$ of the joint variance.
+For head 1 the corresponding values are $64.29\%$, $15.07\%$, and
+$9.02\%$.  Notebook 12 repeats the construction using actual mean residual
+activations rather than probe directions.  The first three components then
+explain $63.80\%$, $31.19\%$, and $4.69\%$ for head 3, and $76.33\%$,
+$22.27\%$, and $1.21\%$ for head 1.  These results support a compact
+low-dimensional QK interaction, but they do not by themselves identify the
+coordinates as pure character count or line width.
+
+Notebook 18 makes the relevant factorization more explicit.  For each head,
+it averages the pre-final activations by characters remaining and projects
+those means through the final layer's $W_Q$, while projecting the mean
+newline activation through $W_K$.  A joint three-dimensional PCA explains
+$97.74\%$, $99.39\%$, $98.95\%$, and $99.46\%$ of the variance for heads
+0--3 respectively.  Thus, for each head, the query embeddings trace a
+smooth, essentially low-dimensional path as the line is consumed, while the
+newline keys form a separate reference point.  The QK dot product can then
+compare the current query's position on that path with the newline-key
+representation.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.98\linewidth]{figures/layer2_head3_qk_heatmaps.png}
+    \caption{Layer-2 head-3 QK geometry from Notebook 16.  The left panel is
+    the mean scaled QK score between a content query and the actual previous
+    newline key, indexed by current character count and sampled line width;
+    the middle panel subtracts the log-sum-exp score of all competing causal
+    keys.  The dotted diagonal marks the nominal line boundary.}
+    \label{fig:layer2-head3-qk-heatmaps}
+\end{figure}
+
+\subsection{A boundary-relative score in the strongest QK analysis}
+
+Notebook 16 focuses on layer-2 head 3 and computes, for every valid
+content-query/previous-newline pair, the exact scaled inner product
+\[
+    s_{\mathrm{NL}} = q_{\mathrm{query}}\cdot k_{\mathrm{NL}}/\sqrt{d_{\mathrm{head}}},
+\]
+as well as the competitor-relative margin
+\[
+    m = s_{\mathrm{NL}} - \operatorname{logsumexp}(s_{\mathrm{other\ keys}}).
+\]
+The cached attention scores agree with the explicit QK calculation to within
+$7.6\times10^{-6}$, and the sigmoid of the margin agrees with the cached
+softmax probability to within $2.0\times10^{-6}$.  This verifies that the
+analysis is reading the actual attention computation rather than a proxy.
+
+Across 654,139 query/newline pairs, the margin is strongly organized by
+$\text{character count}-\text{line width}$.  In a boundary window, the mean
+margin is $-2.523$ at offset $-10$, $-0.1215$ at $-3$, $+0.1484$ at $-2$,
+$+0.6520$ at the boundary, and $+1.568$ at offset $+7$.  The corresponding
+mean QK score peaks shortly before the boundary and then decreases, while
+the relative margin keeps increasing because the competing keys are being
+suppressed.  This is the clearest current evidence that the final attention
+layer converts the pre-layer-2 trajectory into a boundary-relative newline
+signal rather than merely copying a fixed newline feature.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/layer2_head3_boundary_margin.png}
+    \caption{Boundary-relative analysis of layer-2 head 3.  The vertical
+    dotted line is the nominal boundary ($\text{character count}-\text{line
+    width}=0$).  The previous-newline score peaks just before the boundary,
+    while the competitor-relative margin crosses zero slightly earlier and
+    continues to rise after the boundary.}
+    \label{fig:layer2-head3-boundary-margin}
+\end{figure}
+
+Notebook 19 illustrates the same circuit on one concrete sequence: seed
+19001, example 78, line width 59, and final-layer head 3.  The notebook
+projects every token's pre-final activation through $W_Q$ and $W_K$, plots
+the pairwise QK scores and causal attention for selected query positions, and
+compares the attention reconstructed from a global three-dimensional QK PCA
+with the actual attention.  The joint Q/K PCA explains $96.9\%$ of the
+variance, and the query-specific PCA reconstructions explain roughly
+$96.5$--$98.0\%$ across the selected queries.  The example includes a
+newline prediction at character count 62, just after the sampled width, and
+shows how the final head's QK geometry produces a concentrated causal
+attention pattern near the relevant newline key.
+
+The three views in Figures~\ref{fig:notebook19-qk-geometry}--
+\ref{fig:notebook19-query62-attention} make the distinction between
+representation and computation explicit.  The joint Q/K plot uses one PCA
+fit to all query and key embeddings in this example, so the blue query path
+and red key path are directly comparable.  The causal-attention heatmap is
+the exact normalized attention pattern from the model, not a PCA
+reconstruction.  At the representative query position 62, the global-PCA
+reconstruction preserves the dominant attention structure while remaining an
+approximation to the exact distribution.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figures/notebook19_head3_joint_qk_geometry.png}
+    \caption{Single-example Head 3 query--key geometry from Notebook 19.
+    Blue points are final-layer query embeddings and red points are key
+    embeddings, both represented in the same global three-dimensional PCA
+    coordinate system.}
+    \label{fig:notebook19-qk-geometry}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figures/notebook19_head3_normalized_causal_attention.png}
+    \caption{Exact normalized causal attention for final-layer Head 3 in the
+    same example. Rows are query positions and columns are source positions;
+    the white upper triangle is causally masked.}
+    \label{fig:notebook19-causal-attention}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figures/notebook19_query62_attention_comparison.png}
+    \caption{Query position 62 from Notebook 19: exact Head 3 attention and
+    attention reconstructed from the shared three-dimensional Q/K PCA.}
+    \label{fig:notebook19-query62-attention}
+\end{figure}
+
+\subsection{What information do newline keys contribute?}
+
+Notebook 29 separates the routing pattern from the information carried by
+newline values. It evaluates 2,048 fresh sequences and reports newline
+precision and recall after interventions to final-layer Head 3. ``Mean
+values'' replaces all newline value vectors within a sequence by their
+sequence mean; ``random shuffle'' applies one seeded uniform random
+permutation of those values; and ``zero values'' sets them to zero. The
+attention interventions either concentrate the same total newline attention
+on the previous newline, spread it uniformly over previous newlines, or
+remove newline attention and renormalize the remaining keys.
+
+The baseline has newline precision $0.5220$ and recall $0.9995$. Mean value
+replacement reduces precision to $0.4759$ and recall to $0.9642$; a random
+permutation reduces them to $0.4709$ and $0.9528$; and zeroing newline values
+reduces them to $0.4942$ and $0.9177$. Concentrating attention on the
+previous newline leaves recall at $0.9995$ but reduces precision to $0.4936.
+Spreading the same total newline attention uniformly reduces recall to
+$0.9209$, while removing newline attention gives recall $0.9735$ and
+precision $0.5165$. Thus newline values are not interchangeable in their
+causal effect, and the distribution of attention across newline keys matters;
+however, newline-key attention is only one route into a redundant final
+decision and its removal does not abolish newline prediction.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.94\linewidth]{figures/layer2_head3_newline_intervention_metrics.png}
+    \caption{Overall newline precision and recall for Head 3 value and
+    attention interventions from Notebook 29. The baseline is compared with
+    value substitutions and attention redistribution/removal.}
+    \label{fig:head3-newline-intervention-metrics}
+\end{figure}
+
+Overall, the current layer-2 picture is: layer 1 and its MLP create a
+low-dimensional, line-structured residual trajectory; final-layer queries
+move along that trajectory as the current line is consumed; newline keys
+encode the line-boundary state; and the query--key inner product, together
+with competition from other causal keys, produces a boundary-relative signal
+that the final readout turns into newline predictions.  The causal head
+ablations caution that this computation is implemented redundantly or in
+parallel across multiple heads, even though head 3 provides the most direct
+and interpretable QK boundary analysis so far.
 
 \section{Current progress and next steps}
 
