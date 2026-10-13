@@ -187,17 +187,19 @@ Approximation & MSE & Var. reduction & NL precision & NL recall \\
 \midrule
 Clean model (no replacement) & --- & --- & 0.519 & 1.000 \\
 Global 3D PCA & 0.558 & 88.4\% & 0.458 & 0.993 \\
-Phase-only spline & 2.537 & 47.3\% & 0.219 & 1.000 \\
-Phase + one line vector & 1.808 & 62.4\% & 0.219 & 0.951 \\
-Separate line offsets & 1.364 & 71.6\% & 0.181 & 0.503 \\
-Unconstrained phase + line & 1.685 & 65.1\% & 0.235 & 0.977 \\
-Orthogonal phase + line & 1.761 & 63.6\% & 0.228 & 0.932 \\
+PCA-reconstructed phase-only spline & 2.537 & 47.3\% & 0.219 & 1.000 \\
+PCA-reconstructed phase + one line vector & 1.808 & 62.4\% & 0.219 & 0.951 \\
+PCA-reconstructed separate line offsets & 1.364 & 71.6\% & 0.181 & 0.503 \\
+Full-space unconstrained phase + line & 1.685 & 65.1\% & 0.235 & 0.977 \\
+Full-space orthogonal phase + line & 1.761 & 63.6\% & 0.228 & 0.932 \\
 Random 3D subspace & $4.721\pm0.051$ & $2.3\pm1.0\%$ & $0.350\pm0.393$ & $0.211\pm0.348$ \\
 \bottomrule
 \end{tabular}
 \caption{Activation approximations and behavioral interventions. NL denotes
-newline. The spline-hierarchy rows are from Notebook 25; the final two rows
-are from the constrained decomposition experiment in Notebook 26. The random
+newline. The first three spline rows are the Notebook 25 predictors after
+projection into and reconstruction from the global three-dimensional PCA
+subspace. The final two rows are direct full-space predictors from the
+constrained decomposition experiment in Notebook 26. The random
 subspace row reports mean $\pm$ standard deviation over 20 independent
 subspaces.}
 \label{tab:activation-approximations}
@@ -720,8 +722,9 @@ projects every token's pre-final activation through $W_Q$ and $W_K$, plots
 the pairwise QK scores and causal attention for selected query positions, and
 compares the attention reconstructed from a global three-dimensional QK PCA
 with the actual attention.  The joint Q/K PCA explains $96.9\%$ of the
-variance, and the query-specific PCA reconstructions explain roughly
-$96.5$--$98.0\%$ across the selected queries.  The example includes a
+variance.  The same global Q/K PCA coordinates are reused for every selected
+query, so the query comparisons do not introduce a separate per-query
+coordinate system.  The example includes a
 newline prediction at character count 62, just after the sampled width, and
 shows how the final head's QK geometry produces a concentrated causal
 attention pattern near the relevant newline key.
@@ -779,7 +782,7 @@ The baseline has newline precision $0.5220$ and recall $0.9995$. Mean value
 replacement reduces precision to $0.4759$ and recall to $0.9642$; a random
 permutation reduces them to $0.4709$ and $0.9528$; and zeroing newline values
 reduces them to $0.4942$ and $0.9177$. Concentrating attention on the
-previous newline leaves recall at $0.9995$ but reduces precision to $0.4936.
+previous newline leaves recall at $0.9995$ but reduces precision to $0.4936$.
 Spreading the same total newline attention uniformly reduces recall to
 $0.9209$, while removing newline attention gives recall $0.9735$ and
 precision $0.5165$. Thus newline values are not interchangeable in their

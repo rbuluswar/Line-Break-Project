@@ -88,13 +88,17 @@ print("Clean post-layer-1 count probe under layer-1 head zero ablation"); displa
 '''
 
 plots = '''import matplotlib.pyplot as plt
-fig, axes = plt.subplots(1, 2, figsize=(12, 4), constrained_layout=True)
+fig, axes = plt.subplots(1, 3, figsize=(16, 4.5), constrained_layout=True)
 for rep, group in head_probe_results.groupby("representation"):
     axes[0].plot(group["head"], group.R2, marker="o", label=rep); axes[1].plot(group["head"], group.MAE, marker="o", label=rep)
-axes[0].set_title("Head-wise count probe R2"); axes[0].set_ylabel("R2"); axes[1].set_title("Head-wise count probe MAE"); axes[1].set_ylabel("MAE")
-for ax in axes: ax.set_xlabel("Layer-1 head"); ax.grid(alpha=.25); ax.legend(frameon=False)
+axes[0].set_title("Head-wise count probe $R^2$"); axes[0].set_ylabel("Held-out $R^2$")
+axes[1].set_title("Head-wise count probe MAE"); axes[1].set_ylabel("MAE")
+axes[2].bar(ablation_results["head"].astype(str), ablation_results.R2, color=["gray" if str(h) == "clean" else ("crimson" if str(h) == "1" else "steelblue") for h in ablation_results["head"]])
+axes[2].set_title("Clean probe after head zero ablation"); axes[2].set_xlabel("Ablated head")
+axes[2].set_ylabel("Held-out $R^2$"); axes[2].axhline(0, color="black", linewidth=0.8)
+for ax in axes[:2]: ax.set_xlabel("Layer-1 head")
+for ax in axes: ax.grid(axis="y", alpha=.25); ax.legend(frameon=False) if ax is not axes[2] else None
 plt.show()
-fig, ax = plt.subplots(figsize=(7, 4), constrained_layout=True); ax.bar(ablation_results["head"].astype(str), ablation_results.R2); ax.set_title("Post-layer-1 count probe after head zero ablation"); ax.set_xlabel("ablated head (clean = baseline)"); ax.set_ylabel("held-out R2"); ax.grid(axis="y", alpha=.25); plt.show()
 '''
 
 nb.cells = [nbf.v4.new_markdown_cell("# Which layer-1 head constructs character count?\n\nThis notebook probes each layer-1 head's raw output and residual-space contribution, then zero-ablates each head and evaluates a clean post-layer-1 count probe."), nbf.v4.new_code_cell(setup), nbf.v4.new_markdown_cell("## Head-wise count probes"), nbf.v4.new_code_cell(probes), nbf.v4.new_markdown_cell("## Causal head ablations"), nbf.v4.new_code_cell(ablations), nbf.v4.new_markdown_cell("## Figures"), nbf.v4.new_code_cell(plots)]
