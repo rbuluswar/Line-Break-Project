@@ -481,19 +481,24 @@ worse than a constant-mean predictor.}
 Model & Functional form for the current-line contribution &
 Raw $z$ $R^2$ & Residual $zW_O$ $R^2$ \\
 \midrule
-Count-only & $b+f(c_t,\ell)$ & 0.8103 & 0.9226 \\
+Count-only &
+$\hat{\mathbf z}_t=\mathbf b+c_t\mathbf w_c+\ell\mathbf w_\ell$
+& 0.8103 & 0.9226 \\
 Length histogram &
-$b+\sum_{j\text{ since previous newline}}g(\operatorname{length}_j)$ &
+$\hat{\mathbf z}_t=\mathbf b+\sum_{r=1}^{8}n_{t,r}\mathbf g_r+\ell\mathbf w_\ell$
+&
 0.8105 & 0.9226 \\
 \bottomrule
 \end{tabular}
 \caption{Two sequence-level models of layer-1 head 1 output from the
-accumulator test. The count-only model uses cumulative character count and
-line width; the length-histogram model sums learned contributions from token
-lengths since the previous newline. Their held-out residual-contribution
-$R^2$ values are identical to the reported precision, so adding the explicit
-length histogram does not improve reconstruction beyond the count-based
-description.}
+accumulator test. Here $c_t$ and $\ell$ are scalar cumulative character count
+and line width, respectively; $\mathbf b$, $\mathbf w_c$, $\mathbf w_\ell$,
+and $\mathbf g_r$ are learned vectors, and $n_{t,r}$ counts length-$r$ tokens
+since the previous newline. Both models predict the 32-dimensional head
+output $\hat{\mathbf z}_t$ by affine functions of their features. Their
+held-out residual-contribution $R^2$ values are identical to the reported
+precision, so adding the explicit length histogram does not improve
+reconstruction beyond the count-based description.}
 \label{tab:head1-accumulator-models}
 \end{table}
 
