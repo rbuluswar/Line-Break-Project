@@ -926,6 +926,23 @@ attention interventions either concentrate the same total newline attention
 on the previous newline, spread it uniformly over previous newlines, or
 remove newline attention and renormalize the remaining keys.
 
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lr}
+\toprule
+Attention predictor & AUC for true newline target \\
+\midrule
+Total attention to previous newline tokens & 0.8634 \\
+Attention to the most recent previous newline & 0.8757 \\
+\bottomrule
+\end{tabular}
+\caption{Predictive association between L2H3 attention and genuine newline
+targets in Notebook 29.  The AUCs are computed over the fresh 2,048-sequence
+evaluation batch.  These are predictive statistics, not intervention results.}
+\label{tab:head3-attention-true-target-auc}
+\end{table}
+
 The baseline has newline precision $0.5220$ and recall $0.9995$. Mean value
 replacement reduces precision to $0.4759$ and recall to $0.9642$; a random
 permutation reduces them to $0.4709$ and $0.9528$; and zeroing newline values
@@ -937,6 +954,53 @@ precision $0.5165$. Thus newline values are not interchangeable in their
 causal effect, and the distribution of attention across newline keys matters;
 however, newline-key attention is only one route into a redundant final
 decision and its removal does not abolish newline prediction.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Pattern intervention & NL precision & NL recall & NL frequency & Prediction flips \\
+\midrule
+Baseline & 0.5220 & 0.9995 & 0.1029 & --- \\
+All newline attention to previous newline & 0.4936 & 0.9995 & 0.1088 & 4.30\% \\
+Uniform across previous newlines & 0.5229 & 0.9209 & 0.0946 & 2.39\% \\
+Remove newline attention & 0.5165 & 0.9735 & 0.1013 & 4.67\% \\
+\bottomrule
+\end{tabular}
+\caption{L2H3 attention-pattern interventions from Notebook 29.  The first
+two interventions preserve the total attention mass on newline tokens but
+change its distribution; removal renormalizes attention over non-newline
+source positions.  Which newline receives attention matters more than total
+newline attention alone.}
+\label{tab:head3-pattern-interventions}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Intervention & $\Delta$ NL logit & $|\Delta|$ NL logit &
+ $\Delta$ NL margin & $|\Delta|$ NL margin \\
+\midrule
+Baseline & 0.000 & 0.000 & 0.000 & 0.000 \\
+Mean newline values & 0.369 & 2.533 & 0.357 & 2.589 \\
+Shuffled newline values & $-0.061$ & 2.853 & $-0.089$ & 2.919 \\
+Zeroed newline values & $-1.137$ & 2.754 & $-1.179$ & 2.830 \\
+Previous-newline attention & 0.552 & 0.632 & 0.562 & 0.646 \\
+Uniform newline attention & $-2.091$ & 2.256 & $-2.148$ & 2.322 \\
+Removed newline attention & 0.103 & 1.981 & 0.088 & 2.025 \\
+\bottomrule
+\end{tabular}
+\caption{Changes at the $16,507$ true-newline target positions only.
+$\Delta$ NL logit is the intervention-minus-baseline newline logit, and NL
+margin is the newline logit minus the best non-newline logit.  Positive margin
+changes favor newline prediction.  Removing newline attention has only a
+small mean effect on the true-target margin, whereas uniformly redistributing
+that attention strongly reduces it.}
+\label{tab:head3-true-target-logit-effects}
+\end{table}
 
 \begin{figure}[t]
     \centering
