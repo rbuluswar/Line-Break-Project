@@ -340,6 +340,27 @@ a literal scalar addition.
 \begin{table}[t]
 \centering
 \small
+\begin{tabular}{lrr}
+\toprule
+Probe site & Held-out $R^2$ & MAE \\
+\midrule
+Before layer-1 attention & 0.481 & 13.99 \\
+After layer-1 attention, before MLP & 0.979 & 2.73 \\
+MLP output & 0.998 & 0.90 \\
+After complete layer-1 block & 0.997 & 0.99 \\
+\bottomrule
+\end{tabular}
+\caption{Emergence of linearly readable cumulative character count around
+layer 1. The same train/evaluation construction is used at every site, with
+BOS and newline positions excluded. The sharp increase after layer-1
+attention localizes the main emergence of the feature to that update; the
+MLP then further refines it.}
+\label{tab:layer1-count-emergence}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
 \begin{tabular}{lrrrrr}
 \toprule
 Zero-ablated heads & NL precision & NL recall & NL frequency & MSE vs. clean & PCA3 variance \\
@@ -408,6 +429,73 @@ degradation of the count readout without carrying much count information by
 itself, suggesting a supporting boundary or geometric role.  The layer-1 MLP
 then refines the head-1-produced representation before it is passed to layer
 2.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+ & \multicolumn{2}{c}{Raw head output $z$} &
+   \multicolumn{2}{c}{Residual contribution $zW_O$} \\
+Head & $R^2$ & MAE & $R^2$ & MAE \\
+\midrule
+0 & 0.097 & 18.96 & 0.097 & 18.96 \\
+1 & 0.975 & 2.91 & 0.974 & 2.96 \\
+2 & 0.140 & 18.37 & 0.141 & 18.35 \\
+3 & 0.111 & 18.71 & 0.112 & 18.69 \\
+\bottomrule
+\end{tabular}
+\caption{Head-wise probes for cumulative character count. Layer-1 head 1
+is exceptional: its output and its residual-stream contribution both make
+count highly linearly readable, whereas the other heads do not. Head IDs are
+zero-based.}
+\label{tab:headwise-count-probes}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+Condition & Held-out $R^2$ & MAE \\
+\midrule
+Clean post-layer-1 activation & 0.997 & 0.99 \\
+Head 0 zero-ablated & 0.990 & 1.93 \\
+Head 1 zero-ablated & $-1.287$ & 29.96 \\
+Head 2 zero-ablated & 0.967 & 3.79 \\
+Head 3 zero-ablated & 0.928 & 5.30 \\
+\bottomrule
+\end{tabular}
+\caption{Causal survival of the clean post-layer-1 count representation.
+The same count probe is applied without refitting after each head is zeroed.
+Removing head 1 destroys the original count readout: its negative $R^2$ is
+worse than a constant-mean predictor.}
+\label{tab:head1-count-causal-ablation}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{l p{0.43\linewidth} rr}
+\toprule
+Model & Functional form for the current-line contribution &
+Raw $z$ $R^2$ & Residual $zW_O$ $R^2$ \\
+\midrule
+Count-only & $b+f(c_t,\ell)$ & 0.8103 & 0.9226 \\
+Length histogram &
+$b+\sum_{j\text{ since previous newline}}g(\operatorname{length}_j)$ &
+0.8105 & 0.9226 \\
+\bottomrule
+\end{tabular}
+\caption{Two sequence-level models of layer-1 head 1 output from the
+accumulator test. The count-only model uses cumulative character count and
+line width; the length-histogram model sums learned contributions from token
+lengths since the previous newline. Their held-out residual-contribution
+$R^2$ values are identical to the reported precision, so adding the explicit
+length histogram does not improve reconstruction beyond the count-based
+description.}
+\label{tab:head1-accumulator-models}
+\end{table}
 
 \begin{figure}[t]
     \centering
