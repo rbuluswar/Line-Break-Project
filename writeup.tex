@@ -502,6 +502,61 @@ reconstruction beyond the count-based description.}
 \label{tab:head1-accumulator-models}
 \end{table}
 
+The accumulator interpretation can also be tested locally, by comparing the
+change in head 1's output between consecutive ordinary tokens with the
+character length of the newly consumed token.  Notebook 12 performs this
+test on held-out adjacent positions within the same line segment.  The
+following tables summarize both the multivariate increment prediction and
+the scalar increment-size analysis.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+Target and predictor & Held-out $R^2$ & Interpretation \\
+\midrule
+Vector increment $\Delta \mathbf z_t$ from new token length
+  & 0.5966 & Length predicts the direction and magnitude of the update \\
+Increment norm from length, linear fit
+  & 0.6338 & Best of the three scalar size fits \\
+Increment norm from $\log$(length)
+  & 0.5734 & Nonlinear size control \\
+Increment norm from $\sqrt{\text{length}}$
+  & 0.6176 & Nonlinear size control \\
+\bottomrule
+\end{tabular}
+\caption{Held-out local-increment tests for layer-1 head 1.  The first row
+fits the full vector increment $\Delta\mathbf z_t$ from the newly consumed
+token length.  The remaining rows fit the norm $\|\Delta\mathbf z_t\|$ using
+three scalar transformations of token length.}
+\label{tab:head1-local-increment-fits}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{rrrr}
+\toprule
+New token length & Mean $\|\Delta\mathbf z_t\|$ & SD & Count \\
+\midrule
+1 & 0.1315 & 0.1315 & 4,287 \\
+2 & 0.2174 & 0.1369 & 4,242 \\
+3 & 0.3366 & 0.1433 & 4,221 \\
+4 & 0.4533 & 0.1719 & 4,260 \\
+5 & 0.5736 & 0.1896 & 4,259 \\
+6 & 0.6891 & 0.2316 & 4,189 \\
+7 & 0.8081 & 0.2579 & 4,229 \\
+8 & 0.9207 & 0.2799 & 4,120 \\
+\bottomrule
+\end{tabular}
+\caption{Distribution of held-out adjacent Head-1 output increments by the
+length of the newly consumed token. Longer tokens produce larger mean
+updates, but the substantial standard deviations show that token length does
+not determine the increment exactly.}
+\label{tab:head1-local-increment-by-length}
+\end{table}
+
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.98\linewidth]{figures/layer1_head_count_probes.png}
